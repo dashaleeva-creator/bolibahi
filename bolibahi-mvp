@@ -1,0 +1,15 @@
+bolibahi-mvp/
+.env.example
+requirements.txt
+README.md
+app/
+init
+.py
+main.py
+# FastAPI endpoints
+database.py
+# SQLite setup for customers & inventory
+voice_agent.py
+# Speech-to-Text + LLM intent extraction
+whatsapp.py
+# WhatsApp reminder trigger (Twilio/Meta API)
