@@ -1,3 +1,11 @@
-git add docker-compose.yml
-git commit -m "Add docker-compose.yml"
-git push origin main
+services:
+  bolibahi-api:
+    build: .
+    container_name: bolibahi-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
