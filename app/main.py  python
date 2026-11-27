@@ -1,0 +1,51 @@
+import shutil
+import tempfile
+from fastapi import FastAPI, UploadFile, File
+from pydantic import BaseModel
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from app.database import init_db, update_udhaar, deduct_inventory
+from app.voice_agent import transcribe_audio, parse_shopkeeper_command
+from app.whatsapp import send_whatsapp_reminder
+
+app = FastAPI(title="BoliBahi Voice Ledger API")
+
+@app.on_event("startup")
+def startup():
+    init_db()
+
+class TextCommand(BaseModel):
+    command: str
+
+@app.post("/process-text")
+def process_text_command(payload: TextCommand):
+    """Test endpoint using text instead of audio."""
+    action = parse_shopkeeper_command(payload.command)
+    return execute_ledger_update(payload.command, action)
+
+@app.post("/process-voice")
+async def process_voice_command(file: UploadFile = File(...)):
+    """Main endpoint: Upload audio (.wav/.mp3/.m4a) from shopkeeper."""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".m4a") as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    transcript = transcribe_audio(tmp_path)
+    action = parse_shopkeeper_command(transcript)
+    return execute_ledger_update(transcript, action)
+
+def execute_ledger_update(transcript: str, action):
+    new_balance, phone = update_udhaar(action.customer_name, action.total_amount)
+    for item in action.items:
+        deduct_inventory(item.item_name, item.quantity)
+        
+    wa_status = send_whatsapp_reminder(phone, action.customer_name, action.total_amount, new_balance)
+    
+    return {
+        "transcript": transcript,
+        "parsed_action": action.model_dump(),
+        "updated_balance": new_balance,
+        "whatsapp_notification": wa_status
+    }
